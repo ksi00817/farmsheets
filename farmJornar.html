@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영농 작업 일지 작성 도우미 ✍️</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap');
+        
+        :root {
+            /* 농업/자연 테마에 맞춘 그린 계열 색상 설정 */
+            --accent-color: #16a34a; /* green-600 */
+            --accent-color-light: #bbf7d0; /* green-200 */
+            --accent-color-start: #22c55e; /* green-500 */
+            --accent-color-end: #15803d; /* green-700 */
+            --header-bg-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><path d="M10 90 Q 50 10 90 90" stroke="white" stroke-width="2" fill="none" opacity="0.3"/></svg>');
+            --header-bg-position: right bottom;
+            --header-bg-size: 50% auto;
+            --header-bg-opacity: 0.2;
+            --header-mix-blend-mode: overlay;
+        }
+
+        * { font-family: 'Noto Sans KR', sans-serif; }
+
+        /* 모바일 탭 전환 스타일 */
+        @media (max-width: 1023px) {
+            .tab-content { display: none; }
+            .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+            .mobile-nav-active { color: var(--accent-color); border-top: 3px solid var(--accent-color); background-color: #f0fdf4; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .material-section {
+            break-inside: avoid;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f3f4f6;
+        }
+
+        .gradient-header-bg {
+            background: linear-gradient(135deg, var(--accent-color-start) 0%, var(--accent-color-end) 100%);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .gradient-header-bg::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: var(--header-bg-image);
+            background-repeat: no-repeat;
+            background-position: var(--header-bg-position);
+            background-size: var(--header-bg-size);
+            opacity: var(--header-bg-opacity);
+            z-index: 1;
+            mix-blend-mode: var(--header-mix-blend-mode);
+        }
+
+        .section-heading {
+            font-family: 'Playfair Display', serif !important;
+            font-weight: 700 !important;
+            border-bottom: 3px solid var(--accent-color-light);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            color: #1f2937;
+        }
+
+        .input-group label {
+            color: #374151;
+            font-weight: 600;
+        }
+        
+        .input-group input, .input-group select, .input-group textarea {
+            transition: all 0.2s;
+            border: 1px solid #d1d5db;
+        }
+
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+            outline: none;
+        }
+
+        /* 인쇄 최적화 */
+        @media print {
+            body { background: white; padding-bottom: 0; }
+            .no-print { display: none !important; }
+            .container { max-width: 100% !important; padding: 0 !important; }
+            .material-section {
+                box-shadow: none !important;
+                border: 1px solid #e5e7eb !important;
+                print-color-adjust: exact !important;
+                margin-bottom: 1rem;
+            }
+            .gradient-header-bg { margin-bottom: 1.5rem !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen pb-20 lg:pb-0">
+
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- 헤더 영역 -->
+        <div class="text-center mb-8 no-print">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-leaf text-green-600 mr-3"></i> 영농 작업 일지
+            </h1>
+            <p class="text-gray-600 text-base md:text-lg">모바일과 PC에서 간편하게 작성하고 관리하세요</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 입력 컨테이너 -->
+            <div id="input-container" class="tab-content active bg-white rounded-lg shadow-lg p-5 md:p-8 no-print">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex justify-between items-center border-b pb-4">
+                    <span><i class="fas fa-keyboard text-green-500 mr-2"></i> 일지 작성</span>
+                    <button onclick="clearForm()" class="text-sm font-normal text-red-500 hover:text-red-700 bg-red-50 px-3 py-1 rounded transition">
+                        <i class="fas fa-trash-alt"></i> 초기화
+                    </button>
+                </h2>
+                
+                <form id="documentForm" class="space-y-6">
+                    <!-- 동적 필드가 생성될 영역 -->
+                    <div id="dynamic-fields" class="space-y-6"></div>
+
+                    <!-- 하단 액션 버튼 그룹 -->
+                    <div class="flex flex-col space-y-3 pt-6 border-t mt-8">
+                        <button type="button" onclick="sendToGoogleSheet()" class="w-full bg-green-600 text-white py-3 md:py-4 rounded-md font-semibold text-lg hover:bg-green-700 transition shadow-md">
+                            <i class="fab fa-google-drive mr-2"></i> 클라우드(DB)로 저장
+                        </button>
+                        <div class="grid grid-cols-2 gap-3 mt-2">
+                            <button type="button" onclick="downloadDataFile()" class="bg-white text-gray-700 py-3 rounded border border-gray-300 font-medium hover:bg-gray-50 shadow-sm transition">
+                                <i class="fas fa-download mr-1"></i> 데이터 백업(.json)
+                            </button>
+                            <label class="bg-white text-gray-700 py-3 rounded border border-gray-300 font-medium hover:bg-gray-50 shadow-sm transition text-center cursor-pointer">
+                                <i class="fas fa-upload mr-1"></i> 데이터 복구
+                                <input type="file" id="loadFile" accept=".json" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 미리보기 컨테이너 -->
+            <div id="preview-container" class="tab-content bg-white rounded-lg shadow-lg p-0 md:p-8 overflow-hidden lg:overflow-visible">
+                <div class="p-5 md:p-0">
+                    <div class="flex items-center justify-between mb-6 no-print border-b pb-4">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-file-alt text-blue-600 mr-2"></i> 미리보기
+                        </h2>
+                        <button onclick="window.print()" class="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 transition shadow">
+                            <i class="fas fa-print mr-2"></i> PDF 저장
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 실제 출력될 문서 영역 -->
+                <div id="documentPreview" class="document-output p-5 md:p-0">
+                    <!-- 내용이 동적으로 렌더링 됩니다 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모바일 전용 하단 고정 탭 메뉴 -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex z-50 no-print shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <button onclick="switchTab('input')" id="nav-input" class="flex-1 py-4 text-center font-bold mobile-nav-active transition flex flex-col items-center justify-center gap-1">
+            <i class="fas fa-pen text-lg"></i>
+            <span class="text-xs">작성하기</span>
+        </button>
+        <button onclick="switchTab('preview')" id="nav-preview" class="flex-1 py-4 text-center font-bold text-gray-400 transition flex flex-col items-center justify-center gap-1">
+            <i class="fas fa-file-invoice text-lg"></i>
+            <span class="text-xs">미리보기</span>
+        </button>
+    </div>
+
+    <!-- 커스텀 토스트 알림 (완료 메시지) -->
+    <div id="toastMessage" class="fixed top-5 right-5 z-[100] transform transition-all duration-300 translate-x-full opacity-0 bg-white border-l-4 border-green-500 text-gray-800 px-6 py-4 rounded shadow-xl flex items-center min-w-[300px]">
+        <i class="fas fa-check-circle text-green-500 text-xl mr-3"></i>
+        <div>
+            <p class="font-bold text-sm">알림</p>
+            <p id="toastText" class="text-sm">성공적으로 저장되었습니다.</p>
+        </div>
+    </div>
+
+    <script>
+        const GAS_WEBAPP_URL = "여기에_구글_앱스_스크립트_URL_입력"; // 추후 구글 시트 연동 시 사용
+
+        // --- 1. 양식 필드 구성 데이터 (Dynamic Builder) ---
+        const formConfig = [
+            {
+                sectionId: 'sec_basic',
+                sectionName: '기본정보',
+                icon: 'fas fa-info-circle',
+                fields: [
+                    { id: 'workDate', label: '작업일자', type: 'date', required: true },
+                    { id: 'writer', label: '작성자 (DB연동)', type: 'select', isDbSync: true, placeholder: '작성자 로딩중...', required: true },
+                    { id: 'weather', label: '날씨', type: 'select', options: ['맑음', '구름조금', '흐림', '비', '눈'], required: true },
+                    { id: 'temperature', label: '기온 (℃)', type: 'number', placeholder: '25' }
+                ]
+            },
+            {
+                sectionId: 'sec_work',
+                sectionName: '작업내용',
+                icon: 'fas fa-seedling',
+                fields: [
+                    { id: 'workCategory', label: '작업분류 (DB연동)', type: 'select', isDbSync: true, placeholder: '분류 로딩중...' },
+                    { id: 'landNumber', label: '필지번호/지번 (DB연동)', type: 'select', isDbSync: true, placeholder: '지번 로딩중...' },
+                    { id: 'cropName', label: '작물/자재명 (DB연동)', type: 'select', isDbSync: true, placeholder: '작물/자재 로딩중...' },
+                    { id: 'workArea', label: '작업면적 (ha)', type: 'number', step: '0.01', placeholder: '0.00' },
+                    { id: 'workPersonnel', label: '작업인원 (명)', type: 'number', placeholder: '1' },
+                    { id: 'workQuantity', label: '수량(파종/투입/수확) (kg)', type: 'number', placeholder: '0' },
+                    { id: 'workHours', label: '작업시간 (시간)', type: 'number', step: '0.5', placeholder: '4.0' }
+                ]
+            },
+            {
+                sectionId: 'sec_equipment',
+                sectionName: '장비사용',
+                icon: 'fas fa-tractor',
+                fields: [
+                    { id: 'mainEquipment', label: '사용장비 (DB연동)', type: 'select', isDbSync: true, placeholder: '장비 로딩중...' },
+                    { id: 'subEquipment', label: '보조장비 (DB연동)', type: 'select', isDbSync: true, placeholder: '보조장비 로딩중...' }
+                ]
+            },
+            {
+                sectionId: 'sec_detail',
+                sectionName: '작업상세',
+                icon: 'fas fa-edit',
+                fields: [
+                    { id: 'specialNotes', label: '주요 특이사항 기록', type: 'textarea', rows: 4, placeholder: '병해충 발생 여부, 약제 사용 내역 등 특이사항을 상세히 기록해주세요.' }
+                ]
+            }
+        ];
+
+        // --- 2. 동적 폼 생성 로직 ---
+        function buildForm() {
+            const container = document.getElementById('dynamic-fields');
+            container.innerHTML = '';
+
+            formConfig.forEach(section => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'bg-gray-50 p-4 md:p-5 rounded-lg border border-gray-200 mb-6';
+                
+                // 섹션 제목
+                const titleHtml = `<h3 class="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-300"><i class="${section.icon} text-green-600 mr-2"></i>${section.sectionName}</h3>`;
+                
+                // 필드 그리드 구성
+                const gridDiv = document.createElement('div');
+                // 텍스트에어리어는 전체 너비, 나머지는 2단 그리드
+                gridDiv.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+
+                section.fields.forEach(field => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'input-group flex flex-col';
+                    if (field.type === 'textarea') groupDiv.className += ' md:col-span-2'; // 텍스트 영역은 2칸 모두 차지
+
+                    // 라벨
+                    const label = document.createElement('label');
+                    label.htmlFor = field.id;
+                    label.className = 'text-sm mb-1';
+                    label.innerHTML = `${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}`;
+                    groupDiv.appendChild(label);
+
+                    // 입력 요소
+                    let inputEl;
+                    if (field.type === 'textarea') {
+                        inputEl = document.createElement('textarea');
+                        inputEl.rows = field.rows || 3;
+                    } else if (field.type === 'select') {
+                        inputEl = document.createElement('select');
+                        const defaultOpt = document.createElement('option');
+                        defaultOpt.value = "";
+                        defaultOpt.textContent = field.placeholder || "선택해주세요";
+                        inputEl.appendChild(defaultOpt);
+                        
+                        if (field.options) {
+                            field.options.forEach(opt => {
+                                const option = document.createElement('option');
+                                option.value = opt; option.textContent = opt;
+                                inputEl.appendChild(option);
+                            });
+                        }
+                    } else {
+                        inputEl = document.createElement('input');
+                        inputEl.type = field.type;
+                        if(field.step) inputEl.step = field.step;
+                    }
+
+                    inputEl.id = field.id;
+                    inputEl.name = field.id;
+                    inputEl.className = 'w-full px-3 py-2.5 bg-white rounded-md shadow-sm text-sm';
+                    if (field.placeholder && field.type !== 'select') inputEl.placeholder = field.placeholder;
+                    if (field.isDbSync) inputEl.classList.add('db-sync-field');
+
+                    groupDiv.appendChild(inputEl);
+                    gridDiv.appendChild(groupDiv);
+                });
+
+                sectionDiv.innerHTML = titleHtml;
+                sectionDiv.appendChild(gridDiv);
+                container.appendChild(sectionDiv);
+            });
+            
+            // 오늘 날짜 자동 설정
+            if(document.getElementById('workDate') && !document.getElementById('workDate').value) {
+                document.getElementById('workDate').valueAsDate = new Date();
+            }
+        }
+
+        // --- 3. 구글 시트 연동 드롭다운 데이터 불러오기 (Mockup) ---
+        async function fetchExternalData() {
+            try {
+                // 실제 환경에서는 fetch(GAS_WEBAPP_URL) 등을 통해 JSON 데이터를 받아옵니다.
+                // 현재는 예시용 더미 데이터를 사용하여 연동을 시뮬레이션 합니다.
+                
+                const mockDbData = {
+                    'writer': ['홍길동', '김철수', '이영희', '박농부', '최관리'],
+                    'workCategory': ['파종/정식', '시비(비료)', '방제(농약)', '수확', '제초', '기타'],
+                    'landNumber': ['가-101 (하우스)', '가-102 (노지)', '나-201 (과수원)', '다-301 (창고옆)'],
+                    'cropName': ['벼', '사과', '딸기', '토마토', '고추', '감자', '배추'],
+                    'mainEquipment': ['트랙터(대형)', '트랙터(소형)', '경운기', '이앙기', '콤바인', '없음'],
+                    'subEquipment': ['로터리', '쟁기', '분무기', '트레일러', '예초기', '없음']
+                };
+
+                // 로딩 시뮬레이션을 위한 지연
+                setTimeout(() => {
+                    Object.keys(mockDbData).forEach(fieldId => {
+                        const selectEl = document.getElementById(fieldId);
+                        if(selectEl) {
+                            selectEl.innerHTML = '<option value="">선택하세요</option>';
+                            mockDbData[fieldId].forEach(item => {
+                                const opt = document.createElement('option');
+                                opt.value = item; opt.textContent = item;
+                                selectEl.appendChild(opt);
+                            });
+                        }
+                    });
+                    
+                    // DB 로딩이 끝난 후 로컬 스토리지에 저장된 값이 있으면 복구
+                    loadFormDataFromLocalStorage();
+                    generateDocument();
+                }, 500);
+
+            } catch (e) {
+                console.error("데이터 로드 실패", e);
+            }
+        }
+
+        // --- 토스트 알림 함수 ---
+        function showToastMessage(msg) {
+            const toast = document.getElementById('toastMessage');
+            document.getElementById('toastText').innerText = msg;
+            toast.classList.remove('translate-x-full', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+            }, 3000); // 3초 후 사라짐
+        }
+
+        // --- 4. 데이터 전송 및 관리 ---
+        async function sendToGoogleSheet() {
+            const formData = getFormData();
+            if(!formData.workDate) {
+                showToastMessage("작업일자는 필수 입력 항목입니다.");
+                return;
+            }
+
+            try {
+                // 실제 연동 시: 
+                // await fetch(GAS_WEBAPP_URL, { method: 'POST', body: JSON.stringify(formData) });
+                
+                // 연동 전 시각적 피드백
+                const btn = document.querySelector('button[onclick="sendToGoogleSheet()"]');
+                const originHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 전송 중...';
+                btn.classList.add('opacity-75');
+                btn.disabled = true;
+
+                setTimeout(() => {
+                    showToastMessage("데이터가 성공적으로 클라우드(DB)에 저장되었습니다!");
+                    btn.innerHTML = originHtml;
+                    btn.classList.remove('opacity-75');
+                    btn.disabled = false;
+                }, 1000);
+            } catch (e) {
+                showToastMessage("전송 중 오류 발생: " + e.message);
+            }
+        }
+
+        function getFormData() {
+            const data = {};
+            document.querySelectorAll('#documentForm input, #documentForm select, #documentForm textarea').forEach(el => {
+                if(el.id && el.type !== 'file') data[el.id] = el.value;
+            });
+            return data;
+        }
+
+        function saveFormDataToLocalStorage() {
+            localStorage.setItem('farming_log_data', JSON.stringify(getFormData()));
+        }
+
+        function loadFormDataFromLocalStorage() {
+            const saved = localStorage.getItem('farming_log_data');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.keys(data).forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = data[id];
+                });
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('documentForm').reset();
+            localStorage.removeItem('farming_log_data');
+            // 날짜만 오늘로 재설정
+            document.getElementById('workDate').valueAsDate = new Date();
+            generateDocument();
+            showToastMessage("데이터가 초기화 되었습니다.");
+        }
+
+        // --- 5. JSON 파일 저장 및 불러오기 ---
+        function downloadDataFile() {
+            const data = getFormData();
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `영농일지_${data.workDate || '미상'}.json`);
+            dlAnchorElem.click();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    Object.keys(data).forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el) el.value = data[id];
+                    });
+                    saveFormDataToLocalStorage();
+                    generateDocument();
+                    showToastMessage("데이터를 성공적으로 불러왔습니다.");
+                } catch (err) {
+                    showToastMessage("잘못된 파일 형식입니다.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 6. 문서 결과물 실시간 생성 (미리보기) ---
+        function generateDocument() {
+            const data = getFormData();
+            const preview = document.getElementById('documentPreview');
+            
+            // 날짜 포맷팅
+            let displayDate = "일자 미지정";
+            if(data.workDate) {
+                const d = new Date(data.workDate);
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+                displayDate = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+            }
+
+            const html = `
+                <div class="fade-in bg-white">
+                    <div class="gradient-header-bg text-center mb-6">
+                        <h1 class="text-3xl font-bold mb-3 tracking-wide">영 농 작 업 일 지</h1>
+                        <p class="text-green-100 text-lg font-medium">${displayDate}</p>
+                    </div>
+
+                    <!-- 기본 정보 -->
+                    <div class="material-section">
+                        <h2 class="section-heading"><i class="fas fa-info-circle mr-2 text-green-600"></i> 기본 정보</h2>
+                        <table class="w-full text-sm text-left border-collapse border border-gray-200">
+                            <tbody>
+                                <tr class="border-b border-gray-200">
+                                    <th class="w-1/4 bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">작업일자</th>
+                                    <td class="w-1/4 py-3 px-4">${data.workDate || '-'}</td>
+                                    <th class="w-1/4 bg-gray-50 py-3 px-4 text-gray-700 font-bold border-x border-gray-200">작성자</th>
+                                    <td class="w-1/4 py-3 px-4">${data.writer || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">날씨</th>
+                                    <td class="py-3 px-4">${data.weather || '-'}</td>
+                                    <th class="bg-gray-50 py-3 px-4 text-gray-700 font-bold border-x border-gray-200">기온(℃)</th>
+                                    <td class="py-3 px-4">${data.temperature ? data.temperature + '℃' : '-'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 작업 내용 -->
+                    <div class="material-section">
+                        <h2 class="section-heading"><i class="fas fa-tasks mr-2 text-green-600"></i> 작업 내용</h2>
+                        <table class="w-full text-sm text-left border-collapse border border-gray-200 mb-4">
+                            <tbody>
+                                <tr class="border-b border-gray-200">
+                                    <th class="w-1/4 bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">작업분류</th>
+                                    <td class="w-3/4 py-3 px-4 font-semibold text-green-700">${data.workCategory || '-'}</td>
+                                </tr>
+                                <tr class="border-b border-gray-200">
+                                    <th class="bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">지번/필지</th>
+                                    <td class="py-3 px-4">${data.landNumber || '-'}</td>
+                                </tr>
+                                <tr class="border-b border-gray-200">
+                                    <th class="bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">작물/자재명</th>
+                                    <td class="py-3 px-4">${data.cropName || '-'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                            <div class="bg-green-50 p-3 rounded-lg text-center border border-green-100">
+                                <p class="text-xs text-gray-500 mb-1">작업면적</p>
+                                <p class="font-bold text-lg text-gray-800">${data.workArea ? data.workArea + ' <span class="text-sm font-normal">ha</span>' : '-'}</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg text-center border border-green-100">
+                                <p class="text-xs text-gray-500 mb-1">작업인원</p>
+                                <p class="font-bold text-lg text-gray-800">${data.workPersonnel ? data.workPersonnel + ' <span class="text-sm font-normal">명</span>' : '-'}</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg text-center border border-green-100">
+                                <p class="text-[11px] tracking-tighter text-gray-500 mb-1">수량(파종/투입/수확)</p>
+                                <p class="font-bold text-lg text-gray-800">${data.workQuantity ? data.workQuantity + ' <span class="text-sm font-normal">kg</span>' : '-'}</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg text-center border border-green-100">
+                                <p class="text-xs text-gray-500 mb-1">작업시간</p>
+                                <p class="font-bold text-lg text-gray-800">${data.workHours ? data.workHours + ' <span class="text-sm font-normal">시간</span>' : '-'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 장비 사용 -->
+                    <div class="material-section">
+                        <h2 class="section-heading"><i class="fas fa-tractor mr-2 text-green-600"></i> 장비 사용</h2>
+                        <table class="w-full text-sm text-left border-collapse border border-gray-200">
+                            <tbody>
+                                <tr class="border-b border-gray-200">
+                                    <th class="w-1/4 bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">사용장비</th>
+                                    <td class="w-3/4 py-3 px-4">${data.mainEquipment || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th class="bg-gray-50 py-3 px-4 text-gray-700 font-bold border-r border-gray-200">보조장비</th>
+                                    <td class="py-3 px-4">${data.subEquipment || '-'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 주요 특이사항 -->
+                    <div class="material-section">
+                        <h2 class="section-heading"><i class="fas fa-edit mr-2 text-green-600"></i> 작업 상세 및 특이사항</h2>
+                        <div class="bg-gray-50 p-4 rounded min-h-[100px] whitespace-pre-wrap border border-gray-200 text-gray-800 leading-relaxed">${data.specialNotes || '기록된 특이사항이 없습니다.'}</div>
+                    </div>
+                    
+                    <div class="text-right mt-8 pt-4 border-t border-gray-200 no-print">
+                        <p class="text-sm text-gray-500">위와 같이 농작업 일지를 작성합니다.</p>
+                    </div>
+                </div>
+            `;
+            preview.innerHTML = html;
+        }
+
+        // --- 7. 모바일 탭 전환 ---
+        function switchTab(mode) {
+            const inputCont = document.getElementById('input-container');
+            const previewCont = document.getElementById('preview-container');
+            const navInput = document.getElementById('nav-input');
+            const navPreview = document.getElementById('nav-preview');
+
+            if (mode === 'input') {
+                inputCont.classList.add('active');
+                previewCont.classList.remove('active');
+                navInput.classList.add('mobile-nav-active', 'text-green-600');
+                navInput.classList.remove('text-gray-400');
+                navPreview.classList.add('text-gray-400');
+                navPreview.classList.remove('mobile-nav-active', 'text-green-600');
+            } else {
+                previewCont.classList.add('active');
+                inputCont.classList.remove('active');
+                navPreview.classList.add('mobile-nav-active', 'text-green-600');
+                navPreview.classList.remove('text-gray-400');
+                navInput.classList.add('text-gray-400');
+                navInput.classList.remove('mobile-nav-active', 'text-green-600');
+                generateDocument(); // 탭 전환 시 미리보기 갱신
+            }
+            window.scrollTo(0,0);
+        }
+
+        // --- 초기화 및 이벤트 리스너 등록 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 폼 필드 동적 생성
+            buildForm();
+            
+            // 외부 데이터 모의 로드 및 초기 렌더링
+            fetchExternalData();
+            
+            // 실시간 입력 감지
+            document.getElementById('documentForm').addEventListener('input', () => {
+                saveFormDataToLocalStorage();
+                if(window.innerWidth >= 1024) generateDocument(); // PC(넓은 화면)에서만 실시간 렌더링
+            });
+            
+            // 파일 업로드 이벤트
+            document.getElementById('loadFile').addEventListener('change', handleFileUpload);
+        });
+    </script>
+</body>
+</html>
