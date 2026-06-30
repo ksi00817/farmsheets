@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COAFOR 벼 생장 × 강우 × Veranico — 영농일지 기반</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0e1410;--surf:#161d17;--surf2:#1c2620;--surf3:#222e24;
+  --border:rgba(150,200,130,0.12);--border2:rgba(150,200,130,0.22);
+  --text:#d4e8cc;--text2:#87a87c;--text3:#4e6849;
+  --accent:#4caf78;--accent2:#2d7a50;--accent3:#1a5038;
+  --rain:rgba(68,155,215,0.68);--etc:#e07840;--ma5:#4caf78;
+  --warn:#c88828;--danger:#c04040;--ok:#3a9460;
+  --ver-a:rgba(218,90,48,0.14);--ver-b:rgba(218,90,48,0.38);
+  --ver-c:rgba(175,45,45,0.22);--ver-d:rgba(175,45,45,0.6);
+  --font:'Segoe UI','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+header{padding:12px 20px 8px;border-bottom:0.5px solid var(--border);background:var(--surf);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.logo{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase;}
+h1{font-size:14px;font-weight:500;}
+.sub{font-size:10px;color:var(--text3);}
+
+/* TABS */
+.tab-row{display:flex;gap:5px;padding:9px 20px;background:var(--surf);border-bottom:0.5px solid var(--border);flex-wrap:wrap;}
+.tab{padding:4px 13px;border:0.5px solid var(--border2);border-radius:20px;cursor:pointer;font-size:11px;font-family:var(--font);background:transparent;color:var(--text2);transition:all .15s;}
+.tab:hover{border-color:var(--accent);color:var(--accent);}
+.tab.active{background:var(--accent2);border-color:var(--accent);color:#fff;font-weight:500;}
+.tab .badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle;}
+.badge-ok{background:rgba(58,148,96,.3);color:#6de0a0;}
+.badge-fail{background:rgba(192,64,64,.3);color:#f08080;}
+.badge-re{background:rgba(186,117,23,.3);color:#f0b858;}
+.badge-plan{background:rgba(100,140,220,.3);color:#90beff;}
+
+/* SOWING PLAN BOX */
+.plan-box{margin:12px 20px 0;padding:12px 16px;background:var(--surf2);border:0.5px solid var(--border2);border-left:3px solid var(--accent);border-radius:8px;}
+.plan-title{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;letter-spacing:.04em;}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:11px;color:var(--text2);line-height:1.7;}
+.plan-grid strong{color:var(--text);}
+.lesson-box{margin:8px 20px 0;padding:10px 14px;background:var(--surf3);border:0.5px solid rgba(192,64,64,.25);border-left:3px solid #c04040;border-radius:8px;font-size:11px;color:var(--text2);line-height:1.7;}
+.lesson-title{font-size:11px;font-weight:600;color:#f08080;margin-bottom:4px;}
+
+/* MAIN */
+main{flex:1;display:flex;flex-direction:column;padding:10px 20px 12px;gap:9px;min-height:0;}
+
+/* INFO CARDS */
+.info-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;}
+.ic{background:var(--surf);border:0.5px solid var(--border);border-radius:7px;padding:8px 11px;}
+.ic-l{font-size:9px;color:var(--text3);margin-bottom:2px;letter-spacing:.04em;}
+.ic-v{font-size:17px;font-weight:500;}
+.ic-u{font-size:10px;font-weight:400;color:var(--text2);}
+.ic-v.warn{color:var(--warn);} .ic-v.danger{color:var(--danger);} .ic-v.ok{color:var(--ok);}
+
+/* STAGE LEGEND */
+.stage-leg{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:10px;}
+.sl{display:flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;border:0.5px solid var(--border);}
+.sl-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
+
+/* CHART LEGEND */
+.chart-leg{display:flex;flex-wrap:wrap;gap:4px 13px;font-size:10px;color:var(--text2);}
+.cl{display:flex;align-items:center;gap:4px;}
+.cl-bar{width:11px;height:9px;border-radius:2px;}
+.cl-line{width:18px;height:2px;}
+.cl-line.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 8px);}
+
+/* CHART */
+.chart-wrap{position:relative;flex:1;min-height:240px;max-height:400px;}
+
+/* VER LIST */
+.ver-sec{display:flex;flex-direction:column;gap:4px;}
+.ver-ttl{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.05em;}
+.ver-items{display:flex;flex-wrap:wrap;gap:3px;}
+.ver-item{font-size:10px;padding:2px 9px;border-radius:10px;}
+.ver-mild{background:rgba(218,90,48,.12);border:.5px solid rgba(218,90,48,.35);color:#d08040;}
+.ver-sev{background:rgba(175,45,45,.18);border:.5px solid rgba(175,45,45,.5);color:#e06060;font-weight:500;}
+.ver-crit{background:rgba(175,45,45,.30);border:.5px solid rgba(175,45,45,.7);color:#ff8080;font-weight:700;}
+
+/* NOTE */
+.note{font-size:11px;color:var(--text2);line-height:1.7;padding:9px 13px;background:var(--surf2);border:.5px solid var(--border);border-left:2px solid var(--accent2);border-radius:6px;}
+.note strong{color:var(--text);}
+.note .fail{color:#f08080;font-weight:600;}
+.note .ok{color:#6de0a0;font-weight:600;}
+
+/* FOOTER */
+footer{padding:6px 20px;border-top:.5px solid var(--border);font-size:9px;color:var(--text3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:3px;background:var(--surf);}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:baseline;gap:10px;">
+    <span class="logo">COAFOR</span>
+    <h1>벼 생장 × 강우 × Veranico 분석 v3</h1>
+  </div>
+  <span class="sub">종합영농일지(21–26시즌) 실제 파종일 반영 · 7개 시즌(실측 6 + 계획 1) · CHIRPS 일별 강수</span>
+</header>
+
+<div class="tab-row" id="tabs"></div>
+
+<!-- 26-27 파종 계획 -->
+<div class="plan-box" id="plan-box" style="display:none;">
+  <div class="plan-title">🌾 2026-27 시즌 A-01 · B-01 벼 파종 계획 (첫 벼 재배)</div>
+  <div class="plan-grid">
+    <div><strong>목표 파종창</strong><br>11월 20일 ~ 12월 5일 (ZARC Portaria SPA/MAPA nº45 준수)</div>
+    <div><strong>파종 실행 기준</strong><br>일강수 ≥10mm 후 5일내 재강우 ≥5mm + 5일이동평균 ≥3mm 확인 시 실행</div>
+    <div><strong>품종</strong><br>BRS Esmeralda (108일, veranico 내성·상록형)</div>
+    <div><strong>수확 목표</strong><br>3월 초~중순 (건기 진입 전 완료)</div>
+    <div><strong>파종 전 필수 조치</strong><br>K·B 결핍 교정 완료 (AGROLAB 4월: A01·B01 pH 6.25~6.38, Al 0%)<br>Azospirillum brasilense 접종 (벼는 뿌리혹박테리아 아님)</div>
+    <div><strong>리스크 대비</strong><br>2023-24 교훈: 11/14 조기파종 → 발아실패<br>11/20 이전 파종 금지 · 강우 안정 후 실행</div>
+  </div>
+</div>
+
+<div class="lesson-box" id="lesson-box" style="display:none;">
+  <div class="lesson-title">📋 2023-24 시즌 발아실패 교훈 (이 시즌 선택 시)</div>
+  11/14 파종 직후 DAE 8~17(10일), DAE 21~32(12일) 연속 veranico 발생 → 발아 후 토양수분 고갈로 전면 고사.
+  11월 14일 당시 CHIRPS 5일이동평균은 이미 하강 중이었음. <strong style="color:#f08080;">파종창 앞 5일 이동평균 ≥3mm 확인이 발아 안전의 최소 조건.</strong>
+</div>
+
+<main>
+  <div class="info-row" id="info-row"></div>
+  <div class="stage-leg">
+    <div class="sl"><div class="sl-dot" style="background:rgba(90,200,140,.5);"></div>발아·활착 DAE 0~14</div>
+    <div class="sl"><div class="sl-dot" style="background:rgba(60,140,210,.45);"></div>분얼 DAE 15~45</div>
+    <div class="sl"><div class="sl-dot" style="background:rgba(130,105,215,.45);"></div>유수형성 DAE 46~65</div>
+    <div class="sl"><div class="sl-dot" style="background:rgba(150,85,215,.55);"></div>출수·개화 DAE 66~85 ⚠️최고수분요구</div>
+    <div class="sl"><div class="sl-dot" style="background:rgba(195,145,45,.45);"></div>등숙 DAE 86~100</div>
+    <div class="sl"><div class="sl-dot" style="background:rgba(175,125,35,.30);"></div>수확기 DAE 101~108</div>
+  </div>
+  <div class="chart-leg">
+    <span class="cl"><span class="cl-bar" style="background:var(--rain);"></span>일 강수(mm)</span>
+    <span class="cl"><span class="cl-line" style="background:var(--etc);height:2.5px;"></span>ETc 수분요구량</span>
+    <span class="cl"><span class="cl-line dash" style="color:var(--ma5);height:2px;"></span>5일이동평균</span>
+    <span class="cl"><span class="cl-bar" style="background:var(--ver-a);border:1px solid var(--ver-b);"></span>Veranico 경계·주의</span>
+    <span class="cl"><span class="cl-bar" style="background:var(--ver-c);border:1px solid var(--ver-d);"></span>Veranico 심각·위험</span>
+  </div>
+  <div class="chart-wrap"><canvas id="chart" role="img" aria-label="벼 생장 단계별 수분요구량 강우량 veranico 분석"></canvas></div>
+  <div class="ver-sec">
+    <div class="ver-ttl">VERANICO 구간 × 생장 단계 충돌</div>
+    <div class="ver-items" id="ver-items"></div>
+  </div>
+  <div class="note" id="note"></div>
+</main>
+
+<footer>
+  <span>영농일지: 260628_종합영농일지_26시즌까지.xlsx (실제 파종일 기반) · 강수: UCSB CHIRPS Daily (-11.0°S/-45.2°W)</span>
+  <span>ETc: BRS Esmeralda FAO-56 생장단계별 추정 · 2026-27은 ZARC 권고창 기준 계획치</span>
+</footer>
+
+<script>
+const SD = {"2021-22": {"sow": "2021/11/16", "label": "메벼_앙깡브라 C01·C02", "result": "정상수확", "total": 873, "rain_days": 65, "dry_days": 56, "max_ver": 8, "n_ver": 6, "daily": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 23.6, 11.8, 0.0, 6.9, 13.8, 27.7, 34.6, 0.0, 0.0, 18.5, 18.5, 27.7, 0.0, 0.0, 5.7, 22.8, 5.7, 22.8, 7.6, 3.8, 3.8, 0.0, 0.0, 0.0, 0.0, 0.0, 32.2, 10.7, 17.5, 5.8, 29.1, 17.5, 23.3, 21.3, 32.0, 0.0, 10.7, 10.7, 32.0, 6.0, 12.0, 18.0, 6.0, 18.0, 0.0, 5.0, 20.1, 10.1, 0.0, 0.0, 26.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.2, 0.0, 0.0, 0.0, 0.0, 0.0, 18.4, 9.2, 18.4, 18.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 11.7, 7.8, 11.7, 0.0, 3.9, 4.4, 4.4, 4.4, 8.8, 4.4, 3.9, 0.0, 7.7, 7.7, 7.7, 0.0, 6.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.6, 0.0, 4.6, 4.6, 17.8, 17.8, 17.8, 0.0, 0.0, 2.2, 6.7, 0.0, 0.0, 0.0, 13.4], "ma5": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.7, 7.1, 7.1, 8.4, 11.2, 12.0, 16.6, 16.6, 15.2, 16.2, 14.3, 12.9, 12.9, 12.9, 10.4, 11.2, 6.8, 11.4, 12.9, 12.5, 8.7, 7.6, 3.0, 1.5, 0.8, 0.0, 6.4, 8.6, 12.1, 13.2, 19.1, 16.1, 18.7, 19.4, 24.7, 18.8, 17.5, 14.9, 17.1, 11.9, 14.3, 15.7, 14.8, 12.0, 10.8, 9.4, 9.8, 10.6, 7.0, 7.0, 11.4, 7.3, 5.3, 5.3, 5.3, 0.0, 0.0, 0.8, 0.8, 0.8, 0.8, 0.8, 0.0, 3.7, 5.5, 9.2, 12.9, 12.9, 9.2, 7.3, 3.7, 0.0, 0.0, 0.0, 0.0, 2.3, 3.9, 6.2, 6.2, 7.0, 5.6, 4.9, 3.4, 5.2, 5.3, 5.2, 4.3, 4.9, 4.7, 5.4, 4.6, 5.9, 4.3, 2.8, 1.2, 1.2, 0.0, 0.0, 0.0, 0.9, 0.9, 1.8, 2.8, 6.3, 9.0, 12.5, 11.6, 10.7, 7.6, 5.3, 1.8, 1.8, 1.8, 4.0], "veranicos": [{"s": 0, "e": 6, "l": 7, "ds": "11/16", "de": "11/22"}, {"s": 28, "e": 32, "l": 5, "ds": "12/14", "de": "12/18"}, {"s": 58, "e": 63, "l": 6, "ds": "01/13", "de": "01/18"}, {"s": 65, "e": 69, "l": 5, "ds": "01/20", "de": "01/24"}, {"s": 74, "e": 81, "l": 8, "ds": "01/29", "de": "02/05"}, {"s": 99, "e": 105, "l": 7, "ds": "02/23", "de": "03/01"}], "datestr": ["11/16", "11/17", "11/18", "11/19", "11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07", "03/08", "03/09", "03/10", "03/11", "03/12", "03/13", "03/14", "03/15", "03/16"]}, "2022-23": {"sow": "2022/11/07", "label": "메벼_앙깡브라·BRS502 C08~C11", "result": "정상수확", "total": 654, "rain_days": 58, "dry_days": 63, "max_ver": 9, "n_ver": 4, "daily": [0.0, 17.8, 0.0, 17.8, 15.8, 15.8, 0.0, 7.9, 0.0, 32.2, 21.5, 10.7, 32.2, 0.0, 0.0, 12.4, 12.4, 12.4, 12.4, 26.9, 0.0, 0.0, 26.9, 13.5, 0.0, 9.4, 0.0, 0.0, 0.0, 0.0, 0.0, 5.4, 5.4, 5.4, 0.0, 0.0, 7.2, 7.2, 14.3, 12.2, 12.2, 0.0, 12.2, 6.1, 9.6, 4.8, 4.8, 0.0, 9.6, 8.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.6, 6.6, 9.9, 0.0, 0.0, 3.2, 3.2, 0.0, 0.0, 0.0, 7.9, 7.9, 0.0, 0.0, 0.0, 2.4, 4.8, 2.4, 19.6, 19.6, 0.0, 0.0, 6.5, 38.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 15.1, 1.8, 1.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.3, 6.5, 3.3, 3.3, 0.0, 0.0, 0.0, 0.0, 30.9, 0.0, 0.0, 13.7, 0.0, 1.6, 0.0, 1.6, 0.0, 0.0, 0.0, 9.4], "ma5": [0.0, 8.9, 5.9, 8.9, 10.3, 13.4, 9.9, 11.4, 7.9, 11.2, 12.3, 14.5, 19.3, 19.3, 12.9, 11.1, 11.4, 7.4, 9.9, 15.3, 12.8, 10.3, 13.3, 13.5, 8.1, 10.0, 10.0, 4.6, 1.9, 1.9, 0.0, 1.1, 2.2, 3.2, 3.2, 3.2, 3.6, 3.9, 5.7, 8.2, 10.6, 9.2, 10.2, 8.5, 8.0, 6.5, 7.5, 5.0, 5.7, 5.5, 4.5, 3.6, 3.6, 1.7, 0.0, 0.0, 0.0, 1.3, 2.7, 4.6, 4.6, 4.6, 3.9, 3.3, 1.3, 1.3, 1.3, 2.2, 3.2, 3.2, 3.2, 3.2, 2.1, 1.4, 1.9, 5.9, 9.8, 9.3, 8.3, 9.2, 12.8, 8.9, 8.9, 8.9, 7.6, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 3.4, 3.7, 3.7, 3.7, 0.7, 0.4, 0.0, 0.0, 0.0, 0.0, 0.7, 2.0, 2.6, 3.3, 3.3, 2.6, 1.3, 0.7, 6.2, 6.2, 6.2, 8.9, 8.9, 3.1, 3.1, 3.4, 0.6, 0.6, 0.3, 2.2], "veranicos": [{"s": 26, "e": 30, "l": 5, "ds": "12/03", "de": "12/07"}, {"s": 50, "e": 56, "l": 7, "ds": "12/27", "de": "01/02"}, {"s": 81, "e": 89, "l": 9, "ds": "01/27", "de": "02/04"}, {"s": 93, "e": 100, "l": 8, "ds": "02/08", "de": "02/15"}], "datestr": ["11/07", "11/08", "11/09", "11/10", "11/11", "11/12", "11/13", "11/14", "11/15", "11/16", "11/17", "11/18", "11/19", "11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07"]}, "2023-24 (1차 11/14)": {"sow": "2023/11/14", "label": "BRS에메랄드 C01·C02·C15", "result": "발아실패", "total": 912, "rain_days": 46, "dry_days": 75, "max_ver": 12, "n_ver": 7, "daily": [0.0, 3.8, 20.4, 13.6, 0.0, 6.8, 6.8, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 13.6, 27.1, 27.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 13.2, 0.0, 13.2, 0.0, 20.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 8.6, 0.0, 8.6, 17.2, 20.6, 10.3, 0.0, 41.1, 30.8, 10.6, 5.3, 0.0, 0.0, 0.0, 8.0, 0.0, 8.0, 8.0, 0.0, 0.0, 0.0, 0.0, 6.9, 0.0, 0.0, 0.0, 0.0, 0.0, 37.7, 21.8, 43.6, 21.8, 43.6, 43.6, 43.6, 18.5, 6.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 43.9, 0.0, 23.6, 7.9, 0.0, 0.0, 0.0, 19.8, 0.0, 0.0, 19.8, 98.9, 6.6, 6.6, 26.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 10.1, 10.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "ma5": [0.0, 1.9, 8.0, 9.4, 7.5, 8.9, 9.5, 6.2, 3.5, 3.5, 2.2, 0.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.7, 8.1, 13.6, 13.6, 13.6, 10.9, 5.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.6, 2.6, 5.3, 5.3, 9.3, 6.7, 6.7, 4.0, 4.0, 0.0, 0.0, 1.7, 1.7, 3.4, 6.9, 11.0, 11.3, 11.3, 17.8, 20.6, 18.6, 17.6, 17.6, 9.3, 3.2, 2.6, 1.6, 3.2, 4.8, 4.8, 3.2, 3.2, 1.6, 1.4, 1.4, 1.4, 1.4, 1.4, 0.0, 7.5, 11.9, 20.6, 25.0, 33.7, 34.9, 39.2, 34.2, 31.1, 22.4, 13.6, 4.9, 1.2, 0.0, 0.0, 8.8, 8.8, 13.5, 15.1, 15.1, 6.3, 6.3, 5.5, 4.0, 4.0, 7.9, 27.7, 25.1, 26.4, 31.7, 27.7, 8.0, 6.6, 5.3, 0.0, 0.0, 0.0, 1.0, 3.0, 5.0, 5.0, 5.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0], "veranicos": [{"s": 8, "e": 17, "l": 10, "ds": "11/22", "de": "12/01"}, {"s": 21, "e": 32, "l": 12, "ds": "12/05", "de": "12/16"}, {"s": 38, "e": 43, "l": 6, "ds": "12/22", "de": "12/27"}, {"s": 67, "e": 71, "l": 5, "ds": "01/20", "de": "01/24"}, {"s": 81, "e": 86, "l": 6, "ds": "02/03", "de": "02/08"}, {"s": 102, "e": 108, "l": 7, "ds": "02/24", "de": "03/01"}, {"s": 112, "e": 120, "l": 9, "ds": "03/05", "de": "03/13"}], "datestr": ["11/14", "11/15", "11/16", "11/17", "11/18", "11/19", "11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "02/29", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07", "03/08", "03/09", "03/10", "03/11", "03/12", "03/13"]}, "2023-24 (2차 재파종 12/21)": {"sow": "2023/12/21", "label": "BRS502 전면재파종", "result": "재파종", "total": 847, "rain_days": 49, "dry_days": 72, "max_ver": 9, "n_ver": 6, "daily": [20.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 8.6, 0.0, 8.6, 17.2, 20.6, 10.3, 0.0, 41.1, 30.8, 10.6, 5.3, 0.0, 0.0, 0.0, 8.0, 0.0, 8.0, 8.0, 0.0, 0.0, 0.0, 0.0, 6.9, 0.0, 0.0, 0.0, 0.0, 0.0, 37.7, 21.8, 43.6, 21.8, 43.6, 43.6, 43.6, 18.5, 6.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 43.9, 0.0, 23.6, 7.9, 0.0, 0.0, 0.0, 19.8, 0.0, 0.0, 19.8, 98.9, 6.6, 6.6, 26.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 10.1, 10.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.8, 1.9, 0.0, 0.0, 0.0, 0.0, 1.1, 0.0, 0.0, 0.0, 5.7, 5.7, 0.0, 0.0, 5.7, 11.0, 11.0, 0.0, 0.0, 0.0, 0.2, 1.1, 4.7, 5.0, 3.0, 0.0, 0.0, 0.0, 15.1], "ma5": [20.1, 10.0, 6.7, 5.0, 4.0, 0.0, 0.0, 1.7, 1.7, 3.4, 6.9, 11.0, 11.3, 11.3, 17.8, 20.6, 18.6, 17.6, 17.6, 9.3, 3.2, 2.6, 1.6, 3.2, 4.8, 4.8, 3.2, 3.2, 1.6, 1.4, 1.4, 1.4, 1.4, 1.4, 0.0, 7.5, 11.9, 20.6, 25.0, 33.7, 34.9, 39.2, 34.2, 31.1, 22.4, 13.6, 4.9, 1.2, 0.0, 0.0, 8.8, 8.8, 13.5, 15.1, 15.1, 6.3, 6.3, 5.5, 4.0, 4.0, 7.9, 27.7, 25.1, 26.4, 31.7, 27.7, 8.0, 6.6, 5.3, 0.0, 0.0, 0.0, 1.0, 3.0, 5.0, 5.0, 5.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.8, 1.8, 1.8, 1.8, 1.8, 0.0, 0.0, 0.0, 0.8, 1.2, 1.2, 1.2, 1.2, 0.4, 0.2, 0.2, 0.2, 0.2, 1.4, 2.3, 2.3, 2.3, 3.4, 4.5, 5.5, 5.5, 5.5, 4.4, 2.2, 0.3, 1.2, 2.2, 2.8, 2.8, 2.5, 1.6, 3.6], "veranicos": [{"s": 1, "e": 6, "l": 6, "ds": "12/22", "de": "12/27"}, {"s": 30, "e": 34, "l": 5, "ds": "01/20", "de": "01/24"}, {"s": 44, "e": 49, "l": 6, "ds": "02/03", "de": "02/08"}, {"s": 65, "e": 71, "l": 7, "ds": "02/24", "de": "03/01"}, {"s": 75, "e": 83, "l": 9, "ds": "03/05", "de": "03/13"}, {"s": 85, "e": 91, "l": 7, "ds": "03/15", "de": "03/21"}], "datestr": ["12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "02/29", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07", "03/08", "03/09", "03/10", "03/11", "03/12", "03/13", "03/14", "03/15", "03/16", "03/17", "03/18", "03/19", "03/20", "03/21", "03/22", "03/23", "03/24", "03/25", "03/26", "03/27", "03/28", "03/29", "03/30", "03/31", "04/01", "04/02", "04/03", "04/04", "04/05", "04/06", "04/07", "04/08", "04/09", "04/10", "04/11", "04/12", "04/13", "04/14", "04/15", "04/16", "04/17", "04/18", "04/19"]}, "2024-25 (11/11)": {"sow": "2024/11/11", "label": "에메랄드·찰벼산도 B01·C08·C04", "result": "정상수확", "total": 641, "rain_days": 42, "dry_days": 79, "max_ver": 16, "n_ver": 6, "daily": [8.1, 0.0, 8.1, 32.4, 0.0, 0.0, 0.0, 0.0, 0.0, 11.6, 0.0, 17.7, 53.1, 0.0, 53.1, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 14.3, 0.0, 0.0, 8.6, 8.6, 0.0, 8.6, 0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 0.0, 0.0, 0.0, 21.6, 0.0, 0.0, 0.0, 6.4, 0.0, 12.8, 13.4, 6.7, 20.1, 26.8, 20.1, 37.4, 0.0, 37.4, 0.0, 0.0, 17.1, 0.0, 0.0, 0.0, 17.1, 9.3, 0.6, 0.2, 0.0, 1.4, 0.0, 7.1, 14.2, 7.1, 14.2, 0.0, 4.8, 4.8, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 29.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 16.3, 0.0, 0.0, 1.6, 0.0, 9.5, 5.5, 0.0, 0.0, 0.0, 2.8, 0.0, 0.0, 0.0, 0.0, 12.3, 3.8], "ma5": [8.1, 4.1, 5.4, 12.2, 9.7, 8.1, 8.1, 6.5, 0.0, 2.3, 2.3, 5.9, 16.5, 16.5, 24.8, 24.8, 22.4, 11.8, 11.8, 1.2, 1.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.9, 2.9, 2.9, 4.6, 6.3, 3.4, 5.1, 5.1, 3.4, 1.7, 5.3, 3.6, 3.6, 3.6, 3.6, 0.0, 4.3, 4.3, 4.3, 4.3, 5.6, 1.3, 3.8, 6.5, 7.9, 10.6, 16.0, 17.5, 22.3, 20.9, 24.4, 19.0, 15.0, 10.9, 10.9, 3.4, 3.4, 6.8, 5.3, 5.4, 5.4, 5.4, 2.3, 0.4, 1.8, 4.6, 6.0, 8.5, 8.5, 8.1, 6.2, 4.8, 1.9, 1.9, 1.0, 0.0, 0.0, 5.9, 5.9, 5.9, 5.9, 5.9, 0.0, 0.0, 2.0, 2.0, 2.0, 2.0, 2.0, 0.0, 0.0, 3.3, 3.3, 3.3, 3.6, 3.6, 2.2, 3.3, 3.3, 3.0, 3.0, 1.7, 0.6, 0.6, 0.6, 0.6, 2.5, 3.2], "veranicos": [{"s": 4, "e": 8, "l": 5, "ds": "11/15", "de": "11/19"}, {"s": 17, "e": 32, "l": 16, "ds": "11/28", "de": "12/13"}, {"s": 44, "e": 48, "l": 5, "ds": "12/25", "de": "12/29"}, {"s": 84, "e": 89, "l": 6, "ds": "02/03", "de": "02/08"}, {"s": 91, "e": 96, "l": 6, "ds": "02/10", "de": "02/15"}, {"s": 98, "e": 103, "l": 6, "ds": "02/17", "de": "02/22"}], "datestr": ["11/11", "11/12", "11/13", "11/14", "11/15", "11/16", "11/17", "11/18", "11/19", "11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07", "03/08", "03/09", "03/10", "03/11"]}, "2025-26 (11/06)": {"sow": "2025/11/06", "label": "찰벼산도·BRS502 C01·C04·C07·C08·C15·C19", "result": "정상수확", "total": 719, "rain_days": 58, "dry_days": 63, "max_ver": 8, "n_ver": 3, "daily": [14.2, 0.0, 0.0, 0.0, 0.0, 15.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 32.3, 17.2, 3.1, 16.4, 2.9, 0.3, 0.2, 25.7, 0.0, 0.0, 0.1, 0.0, 9.1, 4.6, 9.1, 4.6, 27.8, 27.8, 9.3, 0.0, 0.0, 15.0, 7.5, 15.0, 0.0, 0.0, 0.0, 0.0, 7.7, 0.0, 7.7, 0.0, 0.0, 0.0, 0.0, 25.1, 0.0, 0.0, 0.0, 17.1, 8.6, 0.0, 3.5, 7.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.6, 1.9, 0.0, 0.0, 0.0, 0.0, 12.5, 12.5, 12.5, 9.6, 9.6, 9.6, 0.0, 9.6, 0.0, 0.0, 8.3, 8.3, 0.0, 8.3, 9.5, 0.0, 38.0, 0.0, 0.0, 13.8, 0.0, 0.0, 0.0, 0.0, 42.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.6, 5.6, 11.2, 14.5, 32.0, 8.6, 0.0, 3.8, 8.1, 8.1, 8.1, 14.6, 11.0, 7.3, 14.6, 7.3, 5.5], "ma5": [14.2, 7.1, 4.7, 3.6, 2.8, 3.1, 3.1, 3.1, 3.1, 3.1, 0.0, 0.0, 0.0, 0.0, 6.5, 9.9, 10.5, 13.8, 14.4, 8.0, 4.6, 9.1, 5.8, 5.2, 5.2, 5.2, 1.8, 2.8, 4.6, 5.5, 11.0, 14.8, 15.7, 13.9, 13.0, 10.4, 6.4, 7.5, 7.5, 7.5, 4.5, 3.0, 1.5, 1.5, 3.1, 3.1, 3.1, 1.5, 1.5, 5.0, 5.0, 5.0, 5.0, 8.4, 5.1, 5.1, 5.8, 7.2, 5.2, 3.5, 3.5, 2.8, 1.4, 0.0, 0.0, 0.0, 0.0, 1.1, 1.5, 1.5, 1.5, 1.5, 0.4, 2.5, 5.0, 7.5, 9.4, 11.4, 10.8, 8.3, 7.7, 5.8, 3.9, 3.6, 5.2, 3.3, 5.0, 6.9, 5.2, 11.2, 11.2, 9.5, 10.4, 10.4, 2.8, 2.8, 2.8, 8.4, 8.4, 8.4, 8.4, 8.4, 0.0, 0.0, 1.1, 2.2, 4.5, 7.4, 13.8, 14.4, 13.3, 11.8, 10.5, 5.7, 5.6, 8.5, 10.0, 9.8, 11.1, 11.0, 9.1], "veranicos": [{"s": 6, "e": 13, "l": 8, "ds": "11/12", "de": "11/19"}, {"s": 59, "e": 66, "l": 8, "ds": "01/04", "de": "01/11"}, {"s": 98, "e": 103, "l": 6, "ds": "02/12", "de": "02/17"}], "datestr": ["11/06", "11/07", "11/08", "11/09", "11/10", "11/11", "11/12", "11/13", "11/14", "11/15", "11/16", "11/17", "11/18", "11/19", "11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06"]}, "2026-27 계획 (A01·B01)": {"sow": "2026/11/20 (권고)", "label": "BRS에메랄드 A01·B01 (첫 벼)", "result": "계획", "total": 703, "rain_days": 58, "dry_days": 63, "max_ver": 8, "n_ver": 3, "daily": [32.3, 17.2, 3.1, 16.4, 2.9, 0.3, 0.2, 25.7, 0.0, 0.0, 0.1, 0.0, 9.1, 4.6, 9.1, 4.6, 27.8, 27.8, 9.3, 0.0, 0.0, 15.0, 7.5, 15.0, 0.0, 0.0, 0.0, 0.0, 7.7, 0.0, 7.7, 0.0, 0.0, 0.0, 0.0, 25.1, 0.0, 0.0, 0.0, 17.1, 8.6, 0.0, 3.5, 7.0, 7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.6, 1.9, 0.0, 0.0, 0.0, 0.0, 12.5, 12.5, 12.5, 9.6, 9.6, 9.6, 0.0, 9.6, 0.0, 0.0, 8.3, 8.3, 0.0, 8.3, 9.5, 0.0, 38.0, 0.0, 0.0, 13.8, 0.0, 0.0, 0.0, 0.0, 42.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.6, 5.6, 11.2, 14.5, 32.0, 8.6, 0.0, 3.8, 8.1, 8.1, 8.1, 14.6, 11.0, 7.3, 14.6, 7.3, 5.5, 5.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 8.1, 0.0, 0.0, 0.0, 0.0], "ma5": [32.3, 24.7, 17.5, 17.2, 14.4, 8.0, 4.6, 9.1, 5.8, 5.2, 5.2, 5.2, 1.8, 2.8, 4.6, 5.5, 11.0, 14.8, 15.7, 13.9, 13.0, 10.4, 6.4, 7.5, 7.5, 7.5, 4.5, 3.0, 1.5, 1.5, 3.1, 3.1, 3.1, 1.5, 1.5, 5.0, 5.0, 5.0, 5.0, 8.4, 5.1, 5.1, 5.8, 7.2, 5.2, 3.5, 3.5, 2.8, 1.4, 0.0, 0.0, 0.0, 0.0, 1.1, 1.5, 1.5, 1.5, 1.5, 0.4, 2.5, 5.0, 7.5, 9.4, 11.4, 10.8, 8.3, 7.7, 5.8, 3.9, 3.6, 5.2, 3.3, 5.0, 6.9, 5.2, 11.2, 11.2, 9.5, 10.4, 10.4, 2.8, 2.8, 2.8, 8.4, 8.4, 8.4, 8.4, 8.4, 0.0, 0.0, 1.1, 2.2, 4.5, 7.4, 13.8, 14.4, 13.3, 11.8, 10.5, 5.7, 5.6, 8.5, 10.0, 9.8, 11.1, 11.0, 9.1, 8.0, 6.6, 3.7, 2.2, 1.1, 0.0, 0.0, 0.0, 0.0, 1.6, 1.6, 1.6, 1.6, 1.6], "veranicos": [{"s": 45, "e": 52, "l": 8, "ds": "01/04", "de": "01/11"}, {"s": 84, "e": 89, "l": 6, "ds": "02/12", "de": "02/17"}, {"s": 108, "e": 115, "l": 8, "ds": "03/08", "de": "03/15"}], "datestr": ["11/20", "11/21", "11/22", "11/23", "11/24", "11/25", "11/26", "11/27", "11/28", "11/29", "11/30", "12/01", "12/02", "12/03", "12/04", "12/05", "12/06", "12/07", "12/08", "12/09", "12/10", "12/11", "12/12", "12/13", "12/14", "12/15", "12/16", "12/17", "12/18", "12/19", "12/20", "12/21", "12/22", "12/23", "12/24", "12/25", "12/26", "12/27", "12/28", "12/29", "12/30", "12/31", "01/01", "01/02", "01/03", "01/04", "01/05", "01/06", "01/07", "01/08", "01/09", "01/10", "01/11", "01/12", "01/13", "01/14", "01/15", "01/16", "01/17", "01/18", "01/19", "01/20", "01/21", "01/22", "01/23", "01/24", "01/25", "01/26", "01/27", "01/28", "01/29", "01/30", "01/31", "02/01", "02/02", "02/03", "02/04", "02/05", "02/06", "02/07", "02/08", "02/09", "02/10", "02/11", "02/12", "02/13", "02/14", "02/15", "02/16", "02/17", "02/18", "02/19", "02/20", "02/21", "02/22", "02/23", "02/24", "02/25", "02/26", "02/27", "02/28", "03/01", "03/02", "03/03", "03/04", "03/05", "03/06", "03/07", "03/08", "03/09", "03/10", "03/11", "03/12", "03/13", "03/14", "03/15", "03/16", "03/17", "03/18", "03/19", "03/20"]}};
+
+const STAGES=[
+  {name:'발아·활착',s:0,e:14,etcMax:4,etcMin:2,bg:'rgba(90,200,140,.12)',lc:'rgba(90,200,140,.55)'},
+  {name:'분얼',s:15,e:45,etcMax:5,etcMin:4,bg:'rgba(60,140,210,.08)',lc:'rgba(60,140,210,.5)'},
+  {name:'유수형성',s:46,e:65,etcMax:7,etcMin:5.5,bg:'rgba(130,105,215,.10)',lc:'rgba(130,105,215,.5)'},
+  {name:'출수·개화',s:66,e:85,etcMax:8,etcMin:6.5,bg:'rgba(150,85,215,.15)',lc:'rgba(150,85,215,.6)'},
+  {name:'등숙',s:86,e:100,etcMax:6,etcMin:4,bg:'rgba(195,145,45,.10)',lc:'rgba(195,145,45,.5)'},
+  {name:'수확기',s:101,e:108,etcMax:3,etcMin:1,bg:'rgba(175,125,35,.06)',lc:'rgba(175,125,35,.4)'},
+];
+
+function makeEtc(n){
+  return Array.from({length:n},(_,i)=>{
+    const st=STAGES.find(s=>i>=s.s&&i<=s.e);
+    if(!st)return 2;
+    const p=(i-st.s)/(st.e-st.s||1);
+    return +(st.etcMin+(st.etcMax-st.etcMin)*Math.sin(p*Math.PI)).toFixed(1);
+  });
+}
+function getStageAt(dae){return STAGES.find(s=>dae>=s.s&&dae<=s.e)||null;}
+function critLevel(v){
+  const mid=v.s+Math.floor(v.l/2);
+  const st=getStageAt(mid);
+  if(!st)return '경계';
+  if((st.name.includes('출수')||st.name.includes('유수'))&&v.l>=7)return '위험';
+  if(v.l>=14)return '위험';
+  if(v.l>=10)return '심각';
+  if(v.l>=7)return '주의';
+  return '경계';
+}
+
+const NOTES={
+  "2021-22":"<span class=\"ok\">정상수확</span> 시즌. 파종 직후(DAE 0~6) 7일 veranico로 초기 발아가 다소 지연됐으나 이후 강우가 회복되어 정상 생육. 출수·개화기(DAE 66~85)는 비교적 안정적이었고 등숙기(DAE 74~81)에 8일 veranico가 있었으나 수확에 큰 영향 없음. <strong>11월 중순 파종이 이 지역의 실질적 안전 파종창임을 보여준 시즌.</strong>",
+  "2022-23":"<span class=\"ok\">정상수확</span> 시즌. 11/07 파종으로 가장 이른 실제 파종. 생육기 총강수 654mm로 실측 시즌 중 최저지만 강우가 분산되어 출수·개화기(DAE 66~85)에 veranico 없음. 등숙기(DAE 81~100) veranico가 반복됐으나 수확 완료. <strong>파종 타이밍이 좋으면 총강수가 적어도 정상수확 가능.</strong>",
+  "2023-24 (1차 11/14)":"<span class=\"fail\">발아실패 → 전면재파종</span>. 11/14 파종 직후 DAE 8~17(10일), DAE 21~32(12일) 연속 veranico로 토양수분이 완전히 고갈. 발아 후 어린 묘가 고사. <strong>파종 전 5일이동평균이 이미 하강 중이었음 — 이동평균 ≥3mm 미확인 상태에서 조기파종한 것이 실패 원인.</strong> ZARC 창(11/20) 이전 파종의 위험을 실증한 시즌.",
+  "2023-24 (2차 재파종 12/21)":"<span class=\"ok\">재파종 후 수확 성공</span>. 12/21 재파종으로 늦어졌으나 이 시점엔 강우가 안정되어 발아·활착 성공. 등숙기(DAE 65~83)에 veranico 2회 연속(7일+9일)으로 수량 손실이 있었으나 수확 완료. <strong>늦은 파종의 대가: 등숙기가 3월 건기로 밀려 veranico 위험 증가.</strong>",
+  "2024-25 (11/11)":"<span class=\"ok\">정상수확</span> — 그러나 가장 극적인 시즌. 11/11 파종 후 <strong class=\"fail\">활착~분얼초기 DAE 16~31에 16일 심각 veranico</strong>(11/28~12/13) 발생. 그럼에도 <strong>파종 직후 충분한 초기 강우(11월 중하순)로 활착을 마친 뒤 건조기에 진입</strong>한 덕에 고사를 면하고 정상 생육 → 2025년 3~4월 수확(에메랄드·찰벼산도). 출수·개화기 veranico 없음. <strong style=\"color:#ffd060;\">교훈: 발아·활착을 성공하면 분얼기 건조는 견딜 수 있다. 반면 2023처럼 발아기 직격은 치명적 — 파종 직후 강우 정착 여부가 분수령.</strong>",
+  "2025-26 (11/06)":"<span class=\"ok\">정상수확</span> 시즌. 실측 중 <strong>가장 안정적(총 719mm·veranico 3건)</strong>. 출수·개화기(DAE 59~66)에 8일 veranico(위험)가 있었으나 전후 강우로 회복. 11/06 조기 파종으로 등숙기가 2월(우기 내)에 위치해 건기 노출이 최소화됨 → 2026년 3~4월 수확. <strong>안정적 강우 + 적기 파종이 결합된 모범 시즌.</strong>",
+  "2026-27 계획 (A01·B01)":"<strong>A-01·B-01 첫 벼 재배 계획.</strong> 직전 완결 시즌(2025-26)의 실측 CHIRPS를 ZARC 권고 파종창(11/20)에 정렬한 <strong>기후 proxy</strong>. 출수·개화기 veranico 없음이 최대 강점. 분얼 후기(DAE 45~52, 8일)·수확기(DAE 108~115) veranico는 관리 가능 수준. <strong style=\"color:#ffd060;\">핵심 사전 조치: ① K·B 결핍 교정 완료(AGROLAB 4월 결과: A01·B01은 pH 6.25~6.38·Al 0% 우량, K·B 보충 필요) ② 파종 전 Azospirillum brasilense 접종(벼는 뿌리혹박테리아 아님) ③ 파종 직전 5일이동평균 ≥3mm 확인 후 실행.</strong>"
+};
+
+let current=Object.keys(SD).slice(-1)[0];
+let chartInst=null;
+
+function render(s){
+  const d=SD[s];
+  const n=Math.min(d.daily.length,121);
+  const etc=makeEtc(n);
+  const labels=Array.from({length:n},(_,i)=>i%7===0?[`DAE ${i}`,(d.datestr&&d.datestr[i])||'']:'');
+  const totalRain=Math.round(d.daily.slice(0,n).reduce((a,b)=>a+b,0));
+  const maxV=d.veranicos.reduce((m,v)=>v.l>m?v.l:m,0);
+  const critV=d.veranicos.filter(v=>{const c=critLevel(v);return c==='위험'||c==='심각';});
+
+  // 파종계획 박스
+  const isPlan=s.includes('계획');
+  const isFail=s.includes('1차');
+  document.getElementById('plan-box').style.display=isPlan?'block':'none';
+  document.getElementById('lesson-box').style.display=isFail?'block':'none';
+
+  document.getElementById('info-row').innerHTML=`
+    <div class="ic"><div class="ic-l">파종일</div><div class="ic-v" style="font-size:12px;color:#b8d8a8;">${d.sow}</div></div>
+    <div class="ic"><div class="ic-l">생육기 총강수</div><div class="ic-v">${totalRain}<span class="ic-u"> mm</span></div></div>
+    <div class="ic"><div class="ic-l">강우일(≥1mm)</div><div class="ic-v ok">${d.rain_days}<span class="ic-u"> 일</span></div></div>
+    <div class="ic"><div class="ic-l">건조일(<1mm)</div><div class="ic-v warn">${d.dry_days}<span class="ic-u"> 일</span></div></div>
+    <div class="ic"><div class="ic-l">최장 Veranico</div><div class="ic-v ${maxV>=10?'danger':'warn'}">${maxV}<span class="ic-u"> 일</span></div></div>
+    <div class="ic"><div class="ic-l">위험·심각 구간</div><div class="ic-v ${critV.length>0?'danger':'ok'}">${critV.length}<span class="ic-u"> 회</span></div></div>
+  `;
+
+  if(chartInst)chartInst.destroy();
+  const isDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const tc=isDark?'#87a87c':'#4e6849';
+  const gc=isDark?'rgba(150,200,130,.09)':'rgba(70,100,60,.09)';
+
+  chartInst=new Chart(document.getElementById('chart'),{
+    data:{
+      labels,
+      datasets:[
+        {type:'bar',label:'일 강수',data:d.daily.slice(0,n),backgroundColor:'rgba(68,155,215,.65)',borderWidth:0,yAxisID:'y',order:3,barPercentage:1,categoryPercentage:1},
+        {type:'line',label:'ETc',data:etc,borderColor:'#e07840',backgroundColor:'transparent',borderWidth:2.5,pointRadius:0,tension:.4,yAxisID:'y',order:1},
+        {type:'line',label:'5일MA',data:d.ma5.slice(0,n),borderColor:'#4caf78',backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,tension:.3,borderDash:[5,3],yAxisID:'y',order:2}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:250},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(14,20,16,.96)',borderColor:'rgba(150,200,130,.18)',borderWidth:1,
+          titleColor:'#b8d8a8',bodyColor:'#87a87c',
+          callbacks:{
+            title:ctx=>{const i=ctx[0].dataIndex;const st=getStageAt(i);const dt=(d.datestr&&d.datestr[i])?` (${d.datestr[i]})`:'';return`DAE ${i}${dt}${st?' · '+st.name:''}`;},
+            label:ctx=>{if(ctx.datasetIndex===0)return`일 강수: ${ctx.raw.toFixed(1)}mm`;if(ctx.datasetIndex===1)return`ETc: ${ctx.raw}mm/day`;return`5일MA: ${ctx.raw}mm`;}
+          }
+        }
+      },
+      scales:{
+        x:{ticks:{callback:(v,i)=>labels[i]||'',autoSkip:false,maxRotation:0,font:{size:10,weight:'500'},color:tc},grid:{color:gc}},
+        y:{beginAtZero:true,title:{display:true,text:'mm / mm·day⁻¹',font:{size:9},color:tc},ticks:{color:tc,font:{size:10}},grid:{color:gc}}
+      }
+    },
+    plugins:[{
+      id:'overlay',
+      beforeDraw(chart){
+        const{ctx,chartArea:ca,scales:{x}}=chart;
+        STAGES.forEach(st=>{
+          if(st.s>=n)return;
+          const xe=Math.min(st.e,n-1);
+          const x1=x.getPixelForValue(st.s),x2=x.getPixelForValue(xe);
+          ctx.save();
+          ctx.fillStyle=st.bg;ctx.fillRect(x1,ca.top,x2-x1,ca.height);
+          ctx.strokeStyle=st.lc;ctx.lineWidth=0.6;ctx.setLineDash([]);
+          ctx.beginPath();ctx.moveTo(x2,ca.top);ctx.lineTo(x2,ca.bottom);ctx.stroke();
+          if(x2-x1>28){ctx.fillStyle='rgba(170,210,150,.42)';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.fillText(st.name,(x1+x2)/2,ca.top+10);}
+          ctx.restore();
+        });
+        d.veranicos.forEach(v=>{
+          if(v.s>=n)return;
+          const xe=Math.min(v.e,n-1);
+          const xA=x.getPixelForValue(v.s),xB=x.getPixelForValue(xe+.9);
+          const cr=critLevel(v);const sev=cr==='위험'||cr==='심각';
+          ctx.save();
+          ctx.fillStyle=sev?'rgba(175,45,45,.22)':'rgba(218,90,48,.14)';ctx.fillRect(xA,ca.top,xB-xA,ca.height);
+          ctx.strokeStyle=sev?'rgba(200,65,65,.65)':'rgba(218,90,48,.42)';ctx.lineWidth=sev?1.5:.8;ctx.setLineDash(sev?[]:[3,2]);
+          ctx.strokeRect(xA,ca.top,xB-xA,ca.height);
+          ctx.fillStyle=sev?'#e06060':'#d08040';ctx.font=`bold 9px sans-serif`;ctx.textAlign='center';ctx.setLineDash([]);
+          ctx.fillText(`${v.l}일`,(xA+xB)/2,ca.bottom-5);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+
+  const items=d.veranicos.map(v=>{
+    const cr=critLevel(v);
+    const cls=cr==='위험'?'ver-crit':cr==='심각'?'ver-sev':'ver-mild';
+    const icon=cr==='위험'?'🔴':cr==='심각'?'🟠':cr==='주의'?'🟡':'⚪';
+    const st=getStageAt(v.s+Math.floor(v.l/2));
+    return`<span class="ver-item ${cls}">${icon} ${v.ds}~${v.de} ${v.l}일 [${st?st.name:''}] ${cr}</span>`;
+  }).join('');
+  document.getElementById('ver-items').innerHTML=items||'<span style="font-size:10px;color:#4e6849;">없음</span>';
+  document.getElementById('note').innerHTML=NOTES[s]||'';
+}
+
+// 탭 생성
+const tabsEl=document.getElementById('tabs');
+const BADGE={정상수확:'badge-ok',발아실패:'badge-fail',재파종:'badge-re',계획:'badge-plan'};
+Object.entries(SD).forEach(([s,v])=>{
+  const b=document.createElement('button');
+  b.className='tab'+(s===current?' active':'');
+  const badge=`<span class="badge ${BADGE[v.result]||'badge-ok'}">${v.result}</span>`;
+  b.innerHTML=s.replace(' (','<br style="display:none">')+badge;
+  b.onclick=()=>{current=s;tabsEl.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');render(s);};
+  tabsEl.appendChild(b);
+});
+
+render(current);
+</script>
+</body>
+</html>
